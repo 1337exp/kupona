@@ -37,13 +37,10 @@ function shape(name: CurveShape): void {
     selected.value = 0;
 }
 
-const ticks = computed(() => {
-    const step = domain.value > 8 ? 3 : 1;
-    const out: number[] = [];
-    for (let y = 0; y <= domain.value; y += step) out.push(y);
-    return out;
-});
-const left = (years: number): string => `${(30 + (years / domain.value) * 240) / 2.8}%`;
+/** The editor's 0…1 written as years, on its axis and on the tag of the selected point. / 0…1 редактора записано годами: на оси и на метке выбранной точки. */
+const years = (tt: number): string => `${Math.round(tt * domain.value * 10) / 10} ${t('unit.yearShort')}`;
+/** A mark every three years on a long span, every year on a short one. / Метка раз в три года на длинном отрезке, раз в год на коротком. */
+const majorT = computed(() => (domain.value > 8 ? 3 : 1) / domain.value);
 
 const point = computed(() => {
     const p = curve.value[Math.min(selected.value, curve.value.length - 1)];
@@ -55,11 +52,8 @@ const atHorizon = computed(() => t('rates.end', [formatPercent(Math.max(rate.val
 <template>
     <div class="rates">
         <!-- The canvas would take a press for dragging the node: the editor keeps its own presses. / Холст принял бы нажатие за перетаскивание ноды: нажатия редактора остаются ему. -->
-        <div class="editor" @pointerdown.stop @dblclick.stop>
-            <TaoxCurveEditor v-model="model" v-model:selected="selected" :min="0" :precision="4" :step-t="0.25 / domain" :major-t="1" guides="lines" />
-            <div class="axis" aria-hidden="true">
-                <span v-for="y in ticks" :key="y" :style="{ left: left(y) }">{{ y }} {{ t('unit.yearShort') }}</span>
-            </div>
+        <div @pointerdown.stop @dblclick.stop>
+            <TaoxCurveEditor v-model="model" v-model:selected="selected" :min="0" :precision="4" :step-t="0.25 / domain" :major-t="majorT" :format-t="years" guides="lines" />
         </div>
         <div class="shapes">
             <TaoButton v-for="s in CURVE_SHAPES" :key="s" variant="ghost" tone="neutral" size="small" @click="shape(s)">{{ t(`rates.shape.${s}`) }}</TaoButton>
@@ -71,36 +65,6 @@ const atHorizon = computed(() => t('rates.end', [formatPercent(Math.max(rate.val
 </template>
 
 <style scoped>
-.editor {
-    position: relative;
-}
-
-/* The editor writes time as 0…1; the years are drawn by us. / Редактор подписывает время как 0…1; годы рисуем сами. */
-.editor :deep(.tx-curve-label:not([dominant-baseline])),
-.editor :deep(.tx-curve-tag:not([dominant-baseline])) {
-    display: none;
-}
-
-.axis {
-    position: relative;
-    height: 14px;
-    margin-top: -14px;
-    /* The editor draws its labels at 8 units of a 280-unit-wide picture; the node body is 312 wide, so 8 × 312 / 280. / Редактор рисует подписи размером 8 в картинке шириной 280; тело ноды 312, значит 8 × 312 / 280. */
-    font-size: 8.9px;
-    color: var(--tao-color-text-muted, inherit);
-    pointer-events: none;
-}
-
-.axis span {
-    position: absolute;
-    transform: translateX(-50%);
-    white-space: nowrap;
-}
-
-.axis span:first-child {
-    transform: none;
-}
-
 .shapes {
     display: flex;
     gap: 4px;
