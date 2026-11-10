@@ -1,68 +1,131 @@
 <script lang="ts" setup>
-// Placeholder shell: proves the core runs in the browser. The node canvas comes next.
-// Временная оболочка: показывает, что ядро работает в браузере. Холст нод дальше.
-import { compare } from '@/core/compare';
-import { bondQuote } from '@/core/bond';
-import { OFZ_26248 as OFZ } from '@/core/presets';
+import { computed } from 'vue';
+import { TaoButton, TaoSegmented, TaoSegmentedOption, TaoThemeToggle } from '@1337exp/taoui';
+import { TaoxCanvas, type CanvasOptions } from '@1337exp/taoux/canvas';
+import { TaoxLinks } from '@1337exp/taoux/links';
+import { NODES } from '@/app/graph';
+import { useStore } from '@/app/store';
+import { LOCALE_CODES, LOCALE_NAMES, setLocale, useI18n, type LocaleCode } from '@/i18n';
+import NodeView from '@/ui/NodeView.vue';
 
-const quote = bondQuote(OFZ.bond, OFZ.buy);
-const result = compare({ amount: 100_000, rate: 0.14, capitalization: 'monthly', termMonths: 12 }, OFZ.bond, OFZ.buy, {
-    horizonYears: 99,
-    reinvestRate: 0.12,
-    marketYield: null,
-});
+const store = useStore();
+const { t, locale } = useI18n();
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`;
-const pct = (n: number | null, digits = 2) => (n === null ? '—' : `${(n * 100).toFixed(digits).replace('.', ',')}%`);
+// Nothing to connect by hand: the chain is built for you, so the canvas has no pins.
+// Связывать руками нечего: цепочку строят за тебя, поэтому пинов у холста нет.
+const options: CanvasOptions<never> = { pinAt: () => null, zoom: { min: 0.2, max: 1.6 } };
 
-const rows: [string, string][] = [
-    ['Цена (чистая) и НКД', `${quote.cleanPrice.toFixed(2)} + ${quote.accrued.toFixed(2)} ₽`],
-    ['Доходность к погашению', pct(quote.ytm)],
-    ['Текущая доходность', pct(quote.currentYield)],
-    ['Лет до погашения', quote.years.toFixed(2).replace('.', ',')],
-    ['100 000 ₽ в облигацию, купоны под 12%, до погашения', money(result.bond.finalValue)],
-    ['100 000 ₽ во вклад 14% с капитализацией, столько же лет', money(result.deposit.finalValue)],
-    ['Вклад сравняется с облигацией при ставке', pct(result.breakEvenRate)],
-];
+const visible = computed(() => NODES.filter((n) => n.level <= store.level));
+const links = computed(() => store.lineList.map((l) => ({ id: l.id, d: l.d, head: l.head, color: `var(--k-${l.branch})` })));
+
+const problemText = computed(() => store.problems.map((p) => t(`problem.${p}`)).join(', '));
+const language = computed({ get: () => locale.value, set: (code: LocaleCode) => setLocale(code) });
 </script>
 
 <template>
-    <main class="shell">
-        <h1>kupona</h1>
-        <p class="hint">{{ OFZ.name }} ({{ OFZ.ticker }}): ядро расчёта. Холст с нодами будет следующим шагом.</p>
-        <dl>
-            <template v-for="[name, value] in rows" :key="name">
-                <dt>{{ name }}</dt>
-                <dd>{{ value }}</dd>
-            </template>
-        </dl>
-    </main>
+    <div class="app">
+        <TaoxCanvas :host="store.host" :options="options" background="dots">
+            <TaoxLinks :lines="links" />
+            <NodeView v-for="n in visible" :key="n.id" :id="n.id" />
+        </TaoxCanvas>
+
+        <!-- Beside the canvas, not inside it: the canvas captures the pointer and would swallow the clicks. / Рядом с холстом, не внутри: холст захватывает указатель и проглотил бы клики. -->
+        <div class="overlay">
+            <div class="bar left">
+                <div class="brand">
+                    <b>kupona</b>
+                    <span>{{ t('app.subtitle') }}</span>
+                </div>
+                <TaoButton :loading="store.calculating" :disabled="store.problems.length > 0" @click="store.calculate()">{{ t('app.calculate') }}</TaoButton>
+                <TaoButton variant="ghost" tone="neutral" @click="store.fit()">{{ t('app.fit') }}</TaoButton>
+                <TaoButton variant="ghost" tone="neutral" @click="store.layout()">{{ t('app.layout') }}</TaoButton>
+            </div>
+
+            <div class="bar right">
+                <TaoSegmented v-model="language" size="small" :aria-label="t('app.language')">
+                    <TaoSegmentedOption v-for="code in LOCALE_CODES" :key="code" :value="code">{{ LOCALE_NAMES[code] }}</TaoSegmentedOption>
+                </TaoSegmented>
+                <TaoThemeToggle v-model="store.theme" :apply="false" :to-light-label="t('app.light')" :to-dark-label="t('app.dark')" />
+            </div>
+
+            <p v-if="store.problems.length" class="notice error">{{ t('app.problems', [problemText]) }}</p>
+            <p v-else-if="store.level === 0" class="notice">{{ t('app.hint') }}</p>
+        </div>
+    </div>
 </template>
 
 <style scoped>
-.shell {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 32px 16px;
+.app {
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
-.hint {
-    color: var(--tao-color-text-muted, #999);
+/* The layer lets the pointer through to the canvas; only the panels catch it. / Слой пропускает указатель к холсту; ловят его только панели. */
+.overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
 }
 
-dl {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 8px 24px;
+.overlay > * {
+    pointer-events: auto;
 }
 
-dt {
-    color: var(--tao-color-text-muted, #999);
+.bar {
+    position: absolute;
+    top: 12px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--tao-color-border, rgba(127, 127, 127, 0.3));
+    border-radius: 12px;
+    background: var(--tao-color-surface, #1f2125);
 }
 
-dd {
+.bar.left {
+    left: 12px;
+}
+
+.bar.right {
+    right: 12px;
+}
+
+.brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    margin-right: 6px;
+}
+
+.brand b {
+    font-size: 15px;
+}
+
+.brand span {
+    font-size: 11px;
+    color: var(--tao-color-text-muted, inherit);
+}
+
+.notice {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
     margin: 0;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    background: var(--tao-color-surface, #1f2125);
+    border: 1px solid var(--tao-color-border, rgba(127, 127, 127, 0.3));
+    color: var(--tao-color-text-muted, inherit);
+}
+
+.notice.error {
+    color: var(--tao-color-danger-text, #e5484d);
+    border-color: var(--tao-color-danger, #e5484d);
 }
 </style>

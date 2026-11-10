@@ -16,5 +16,5 @@
         "types": [],
         "paths": { "@/*": ["./src/*"] }
     },
-    "include": ["src/core/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+    "include": ["src/core/**/*.ts", "tests/*.ts", "vitest.config.ts"]
 }

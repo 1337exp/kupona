@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.core.json && vue-tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "screenshot": "node scripts/screenshot.mjs"
   },
   "dependencies": {
     "@1337exp/taoui": "^5.32.1",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@vitejs/plugin-vue": "^6.0.10",
+    "playwright-core": "^1.65.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.6",
     "vitest": "^5.1.0",

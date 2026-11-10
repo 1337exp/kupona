@@ -9,4 +9,42 @@ body {
     background: var(--tao-color-bg, #111);
     color: var(--tao-color-text, #eee);
     font-family: var(--tao-font-family, system-ui, sans-serif);
+    overflow: hidden;
+}
+
+/* Colours of the two sides of the comparison: the deposit and the bond. Mid-ramp, readable on both themes.
+   Цвета двух сторон сравнения: вклад и облигация. Средние тона, читаются в обеих темах. */
+:root {
+    --k-deposit: #1d9e75;
+    --k-bond: #7f77dd;
+    --k-both: #8a8f98;
+}
+
+.branch-deposit {
+    --node-color: var(--k-deposit);
+}
+
+.branch-bond {
+    --node-color: var(--k-bond);
+}
+
+.branch-both {
+    --node-color: var(--k-both);
+}
+
+/* A link appears with a soft fade after its node. / Связь проступает мягко, чуть позже своей ноды. */
+.tx-link {
+    animation: link-in 0.6s ease-out 0.25s both;
+}
+
+@keyframes link-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tx-link {
+        animation: none;
+    }
 }
