@@ -1,3 +1,5 @@
+import { type RatePath, isFlat, shiftAt } from './rates';
+
 /**
  * A bank deposit. The rate is nominal yearly. When the term ends, the whole balance (with the interest) is put into a new term
  * at the same rate; a tail shorter than the term earns the same rate (real banks pay less on early closing: not modelled).
@@ -40,14 +42,30 @@ function growth(years: number, rate: number, capitalization: Capitalization): nu
     return (1 + rate / perYear) ** whole * (1 + rate * rest);
 }
 
-/** Balance after `years` (any length, terms are renewed). / Остаток через `years` лет (сроки продлеваются). */
-export function depositValue(dep: Deposit, years: number): number {
+/**
+ * The rate of the contract that starts at `start`: the deposit's own rate moved by the path, never below zero. A rate is fixed
+ * for the whole term, so a new one is only taken when the term is renewed.
+ * Ставка договора, который начинается в `start`: ставка вклада, сдвинутая траекторией, не ниже нуля. Ставка действует весь срок,
+ * новая берётся только при продлении.
+ */
+const rateAt = (dep: Deposit, path: RatePath, start: number): number => Math.max(dep.rate + shiftAt(path, start), 0);
+
+/**
+ * Balance after `years` (any length, terms are renewed). With a moving `path` every renewal takes the rate of that day.
+ * Остаток через `years` лет (сроки продлеваются). С движущейся `path` каждое продление берёт ставку того дня.
+ */
+export function depositValue(dep: Deposit, years: number, path: RatePath = []): number {
     if (years <= 0) return dep.amount;
     const term = dep.termMonths / 12;
     const terms = Math.floor(years / term + 1e-9);
-    const perTerm = growth(term, dep.rate, dep.capitalization);
     const tail = years - terms * term;
-    return dep.amount * perTerm ** terms * growth(tail, dep.rate, dep.capitalization);
+    if (isFlat(path)) {
+        const perTerm = growth(term, dep.rate, dep.capitalization);
+        return dep.amount * perTerm ** terms * growth(tail, dep.rate, dep.capitalization);
+    }
+    let balance = dep.amount;
+    for (let k = 0; k < terms; k++) balance *= growth(term, rateAt(dep, path, k * term), dep.capitalization);
+    return balance * growth(tail, rateAt(dep, path, terms * term), dep.capitalization);
 }
 
 /** What a year really gives: the effective yearly rate. / Сколько на деле даёт год: эффективная годовая ставка. */
@@ -70,13 +88,18 @@ export interface DepositRun {
     effectiveRate: number;
 }
 
-export function simulateDeposit(dep: Deposit, horizon: number): DepositRun {
-    const finalValue = depositValue(dep, horizon);
+export function simulateDeposit(dep: Deposit, horizon: number, path: RatePath = []): DepositRun {
+    const finalValue = depositValue(dep, horizon, path);
     const profit = finalValue - dep.amount;
-    const simpleProfit = dep.amount * dep.rate * horizon;
     const term = dep.termMonths / 12;
     const terms = Math.floor(horizon / term + 1e-9);
     const tail = horizon - terms * term;
+    let simpleProfit = dep.amount * dep.rate * horizon;
+    if (!isFlat(path) && horizon > 0) {
+        simpleProfit = 0;
+        for (let k = 0; k < terms; k++) simpleProfit += dep.amount * rateAt(dep, path, k * term) * term;
+        simpleProfit += dep.amount * rateAt(dep, path, terms * term) * Math.max(tail, 0);
+    }
     const perTerm = dep.capitalization === 'end' ? 1 : Math.floor(term * CAPITALIZATIONS_PER_YEAR[dep.capitalization] + 1e-9);
     const inTail = dep.capitalization === 'end' ? 0 : Math.floor(tail * CAPITALIZATIONS_PER_YEAR[dep.capitalization] + 1e-9);
     return {

@@ -111,8 +111,16 @@ export function dirtyValue(schedule: readonly Payment[], tau: number, y: number)
  * Стоимость на `tau` всего, что выплачено к этому моменту, если каждую выплату сразу вложили под ставку `r`.
  */
 export function reinvestedValue(schedule: readonly Payment[], tau: number, r: number): number {
+    return reinvestedValueBy(schedule, tau, (from, to) => (1 + r) ** (to - from));
+}
+
+/**
+ * The same with any growth: `factor(from, to)` says how many times money grows between two moments (a rate that moves).
+ * То же с любым ростом: `factor(from, to)` говорит, во сколько раз растут деньги между двумя моментами (ставка, которая движется).
+ */
+export function reinvestedValueBy(schedule: readonly Payment[], tau: number, factor: (from: number, to: number) => number): number {
     let sum = 0;
-    for (const p of schedule) if (p.t <= tau + EPS) sum += (p.coupon + p.redemption) * (1 + r) ** (tau - p.t);
+    for (const p of schedule) if (p.t <= tau + EPS) sum += (p.coupon + p.redemption) * factor(p.t, tau);
     return sum;
 }
 
