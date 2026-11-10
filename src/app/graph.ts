@@ -8,6 +8,7 @@ export type NodeId =
     | 'deposit'
     | 'scenario'
     | 'bond'
+    | 'rates'
     | 'accrual'
     | 'compound'
     | 'depositResult'
@@ -42,13 +43,17 @@ export interface LinkDef {
 
 const W = 340;
 const COL = [0, 420, 840] as const;
-const ROW1 = 380;
+const ROW1 = 484;
 const STEP = 252;
 
 export const NODES: readonly NodeDef[] = [
     { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 250 },
-    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 310 },
+    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 420 },
     { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 310 },
+
+    // You edit the curve of rates here, but it grows after the first calculation: the first screen stays three nodes.
+    // Кривую правят здесь, но она вырастает после первого расчёта: первый экран остаётся из трёх нод.
+    { id: 'rates', branch: 'both', level: 1, x: COL[1], y: ROW1, w: W, h: 390 },
 
     { id: 'accrual', branch: 'deposit', level: 1, x: COL[0], y: ROW1, w: W, h: 200 },
     { id: 'compound', branch: 'deposit', level: 2, x: COL[0], y: ROW1 + STEP, w: W, h: 200 },
@@ -71,13 +76,14 @@ export const LINKS: readonly LinkDef[] = [
     { id: 'deposit-accrual', from: 'deposit', fromSide: 'bottom', to: 'accrual', toSide: 'top' },
     { id: 'accrual-compound', from: 'accrual', fromSide: 'bottom', to: 'compound', toSide: 'top' },
     { id: 'compound-depositResult', from: 'compound', fromSide: 'bottom', to: 'depositResult', toSide: 'top' },
-    { id: 'scenario-accrual', from: 'scenario', fromSide: 'bottom', to: 'accrual', toSide: 'right' },
+    { id: 'scenario-rates', from: 'scenario', fromSide: 'bottom', to: 'rates', toSide: 'top' },
+    { id: 'rates-accrual', from: 'rates', fromSide: 'left', to: 'accrual', toSide: 'right' },
 
     { id: 'bond-purchase', from: 'bond', fromSide: 'bottom', to: 'purchase', toSide: 'top' },
     { id: 'purchase-coupons', from: 'purchase', fromSide: 'bottom', to: 'coupons', toSide: 'top' },
     { id: 'coupons-exit', from: 'coupons', fromSide: 'bottom', to: 'exit', toSide: 'top' },
     { id: 'exit-bondResult', from: 'exit', fromSide: 'bottom', to: 'bondResult', toSide: 'top' },
-    { id: 'scenario-purchase', from: 'scenario', fromSide: 'bottom', to: 'purchase', toSide: 'left' },
+    { id: 'rates-purchase', from: 'rates', fromSide: 'right', to: 'purchase', toSide: 'left' },
 
     { id: 'depositResult-compare', from: 'depositResult', fromSide: 'bottom', to: 'compare', toSide: 'left' },
     { id: 'bondResult-compare', from: 'bondResult', fromSide: 'left', to: 'compare', toSide: 'right' },

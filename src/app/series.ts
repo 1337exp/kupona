@@ -29,7 +29,7 @@ export function series(e: Evaluated, points = 120): Series {
     for (let i = 0; i <= points; i++) {
         const years = (life * i) / points;
         t.push(years);
-        deposit.push(depositValue(e.deposit, years));
+        deposit.push(depositValue(e.deposit, years, e.scenario.path));
         bond.push(e.comparison.bond.valueAt(years));
         promise.push(amount * (1 + ytm) ** years);
         max = Math.max(max, deposit[i]!, bond[i]!, promise[i]!);

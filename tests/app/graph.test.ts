@@ -95,8 +95,9 @@ describe('what is visible at a level', () => {
         // a link into a shared node takes the colour of where it comes from / связь в общую ноду берёт цвет того, откуда идёт
         expect(byId['depositResult-compare']).toBe('deposit');
         expect(byId['bondResult-compare']).toBe('bond');
-        expect(byId['scenario-accrual']).toBe('deposit');
-        expect(byId['scenario-purchase']).toBe('bond');
+        expect(byId['rates-accrual']).toBe('deposit');
+        expect(byId['rates-purchase']).toBe('bond');
+        expect(byId['scenario-rates']).toBe('both');
     });
 
     it('leaves the bottom of one node and arrives at the top of the next', () => {

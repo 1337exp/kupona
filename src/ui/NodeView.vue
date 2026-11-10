@@ -9,6 +9,7 @@ import ChartBody from './ChartBody.vue';
 import CompareBody from './CompareBody.vue';
 import DepositBody from './DepositBody.vue';
 import NodeFrame from './NodeFrame.vue';
+import RatesBody from './RatesBody.vue';
 import ScenarioBody from './ScenarioBody.vue';
 import StepBody from './StepBody.vue';
 
@@ -35,6 +36,7 @@ const title = computed(() => (step.value ? t(step.value.title) : t(`node.${props
         <DepositBody v-if="id === 'deposit'" />
         <ScenarioBody v-else-if="id === 'scenario'" />
         <BondBody v-else-if="id === 'bond'" />
+        <RatesBody v-else-if="id === 'rates'" />
         <CompareBody v-else-if="id === 'compare'" />
         <ChartBody v-else-if="id === 'chart'" />
         <StepBody v-else :step="step" />

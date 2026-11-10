@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { TaoInputNumber, TaoSlider, TaoSwitch } from '@1337exp/taoui';
+import { TaoInputNumber, TaoSegmented, TaoSegmentedOption, TaoSlider, TaoSwitch } from '@1337exp/taoui';
 import { formatYears } from '@/app/format';
 import { lifeYears } from '@/app/model';
 import { useStore } from '@/app/store';
 import { useI18n } from '@/i18n';
 import Field from './Field.vue';
+
+type Mode = 'same' | 'own' | 'curve';
 
 const store = useStore();
 const { t, locale } = useI18n();
@@ -15,11 +17,16 @@ const life = computed(() => lifeYears(store.inputs) ?? 13);
 const sliderMax = computed(() => Math.ceil(life.value * 4) / 4);
 const horizonText = computed(() => (s.horizonYears >= life.value ? `${formatYears(life.value, locale.value)} · ${t('node.exitMaturity').toLowerCase()}` : formatYears(s.horizonYears, locale.value)));
 
-/** The switch says "the market does not move" = no yield of our own (`null`). / Переключатель «рынок не меняется» = своей доходности нет (`null`). */
-const marketSame = computed({
-    get: () => s.marketYieldPercent === null,
-    set: (same: boolean) => {
-        s.marketYieldPercent = same ? null : Math.round((store.evaluation.ok ? (store.evaluation.value.quote.ytm ?? 0.15) : 0.15) * 1000) / 10;
+/** The three ways the market can move after the purchase, over the two fields that hold them. / Три способа, как рынок двигается после покупки, поверх двух полей, что их хранят. */
+const mode = computed<Mode>({
+    get: () => (s.marketFollowsCurve ? 'curve' : s.marketYieldPercent === null ? 'same' : 'own'),
+    set: (next) => {
+        s.marketFollowsCurve = next === 'curve';
+        if (next === 'same') s.marketYieldPercent = null;
+        if (next === 'own' && s.marketYieldPercent === null) {
+            const ytm = store.evaluation.ok ? store.evaluation.value.quote.ytm : null;
+            s.marketYieldPercent = Math.round((ytm ?? 0.15) * 1000) / 10;
+        }
     },
 });
 </script>
@@ -32,13 +39,20 @@ const marketSame = computed({
         <Field class="wide" :label="`${t('field.horizon')}: ${horizonText}`">
             <TaoSlider v-model="s.horizonYears" :min="0.25" :max="sliderMax" :step="0.25" />
         </Field>
-        <Field :label="t('field.reinvest')" :error="store.problems.includes('reinvest')">
-            <TaoInputNumber v-model="s.reinvestPercent" :min="0" :step="0.5" :controls="false" />
+        <Field class="wide" :label="t('field.reinvest')" :error="store.problems.includes('reinvest')">
+            <TaoInputNumber v-model="s.reinvestPercent" :min="0" :step="0.5" :controls="false" :disabled="s.reinvestFollows" />
         </Field>
-        <Field :label="t('field.marketYield')" :error="store.problems.includes('marketYield')">
-            <TaoInputNumber v-model="s.marketYieldPercent" :step="0.25" :controls="false" :disabled="marketSame" />
+        <TaoSwitch v-model="s.reinvestFollows" class="wide" :label="t('field.reinvestDeposit')" size="small" />
+        <Field class="wide" :label="t('field.marketMode')">
+            <TaoSegmented v-model="mode" size="small" block :aria-label="t('field.marketMode')">
+                <TaoSegmentedOption value="same">{{ t('field.marketSame') }}</TaoSegmentedOption>
+                <TaoSegmentedOption value="own">{{ t('field.marketOwn') }}</TaoSegmentedOption>
+                <TaoSegmentedOption value="curve">{{ t('field.marketCurve') }}</TaoSegmentedOption>
+            </TaoSegmented>
         </Field>
-        <TaoSwitch v-model="marketSame" class="wide" :label="t('field.marketSame')" size="small" />
+        <Field v-if="mode === 'own'" class="wide" :label="t('field.marketYield')" :error="store.problems.includes('marketYield')">
+            <TaoInputNumber v-model="s.marketYieldPercent" :step="0.25" :controls="false" />
+        </Field>
     </div>
 </template>
 

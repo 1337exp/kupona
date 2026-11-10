@@ -7,6 +7,7 @@ import { type Comparison, type Scenario, compare } from '@/core/compare';
 import { parseDate } from '@/core/dates';
 import { CAPITALIZATIONS, type Capitalization, type Deposit } from '@/core/deposit';
 import { OFZ_26248 } from '@/core/presets';
+import { type CurvePoint, curveShape, curveToPath, isValidCurve, sanitizeCurve } from './curve';
 
 export interface Inputs {
     deposit: { ratePercent: number | null; capitalization: Capitalization; termMonths: number | null };
@@ -24,10 +25,16 @@ export interface Inputs {
         reinvestPercent: number | null;
         /** `null`: the market does not move, the yield stays what it was at the purchase. / `null`: рынок не меняется. */
         marketYieldPercent: number | null;
+        /** Coupons go into deposits and earn what deposits pay on the day (follow the curve). / Купоны идут во вклады и зарабатывают ставку вклада того дня. */
+        reinvestFollows: boolean;
+        /** The yield of the bond moves with the curve. / Доходность облигации двигается вместе с кривой. */
+        marketFollowsCurve: boolean;
+        /** How the deposit rate moves over the years. / Как ставка вклада меняется по годам. */
+        curve: CurvePoint[];
     };
 }
 
-export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon';
+export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon' | 'curve';
 
 /** The OFZ 26248 example: a bond, a typical deposit, five years held. / Пример: ОФЗ 26248, обычный вклад, держим пять лет. */
 export function defaultInputs(): Inputs {
@@ -42,7 +49,7 @@ export function defaultInputs(): Inputs {
             buyDate: buy.date,
             maturity: bond.maturity,
         },
-        scenario: { amount: 100_000, horizonYears: 5, reinvestPercent: 0, marketYieldPercent: null },
+        scenario: { amount: 100_000, horizonYears: 5, reinvestPercent: 0, marketYieldPercent: null, reinvestFollows: false, marketFollowsCurve: false, curve: curveShape('flat') },
     };
 }
 
@@ -90,7 +97,8 @@ export function evaluate(inputs: Inputs): Evaluation {
     if (!(num(s.amount) > 0)) problems.push('amount');
     if (!(num(d.ratePercent) >= 0)) problems.push('rate');
     if (!(num(d.termMonths) >= 1) || !Number.isInteger(d.termMonths)) problems.push('term');
-    if (!(num(s.reinvestPercent) >= 0)) problems.push('reinvest');
+    if (!s.reinvestFollows && !(num(s.reinvestPercent) >= 0)) problems.push('reinvest');
+    if (!isValidCurve(s.curve)) problems.push('curve');
     if (s.marketYieldPercent !== null && !(s.marketYieldPercent > -50)) problems.push('marketYield');
     if (!(s.horizonYears > 0)) problems.push('horizon');
     if (problems.length) return { ok: false, problems };
@@ -103,8 +111,9 @@ export function evaluate(inputs: Inputs): Evaluation {
     };
     const scenario: Scenario = {
         horizonYears: s.horizonYears,
-        reinvestRate: s.reinvestPercent! / 100,
-        marketYield: s.marketYieldPercent === null ? null : s.marketYieldPercent / 100,
+        reinvestRate: s.reinvestFollows ? 'deposit' : s.reinvestPercent! / 100,
+        marketYield: s.marketFollowsCurve ? 'path' : s.marketYieldPercent === null ? null : s.marketYieldPercent / 100,
+        path: curveToPath(s.curve),
     };
     const quote = bondQuote(bond, buy);
     const comparison = compare(deposit, bond, buy, scenario);
@@ -158,6 +167,9 @@ export function sanitizeInputs(raw: unknown): Inputs {
             horizonYears: numberOr(s.horizonYears, base.scenario.horizonYears),
             reinvestPercent: numberOrNull(s.reinvestPercent, base.scenario.reinvestPercent),
             marketYieldPercent: numberOrNull(s.marketYieldPercent, base.scenario.marketYieldPercent),
+            reinvestFollows: s.reinvestFollows === true,
+            marketFollowsCurve: s.marketFollowsCurve === true,
+            curve: sanitizeCurve(s.curve),
         },
     };
 }

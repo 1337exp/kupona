@@ -17,7 +17,7 @@ import { chromium } from 'playwright-core';
 
 const PORT = 5195;
 // Tall on purpose: the chain grows downwards, and the whole of it should be readable. / Высокий кадр: цепочка растёт вниз, и её надо видеть целиком.
-const VIEWPORT = { width: 1280, height: 1500 };
+const VIEWPORT = { width: 1280, height: 1640 };
 /** The chain grows level by level (about half a second each) and the camera follows. / Цепочка растёт по уровням, камера следует. */
 const GROW_MS = 6500;
 
@@ -65,7 +65,29 @@ try {
     const grown = async (locale, scheme, button) => {
         const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1, colorScheme: scheme, locale });
         const page = await context.newPage();
-        await page.addInitScript(() => localStorage.clear());
+        // Rates fall, coupons go into deposits, the market follows the curve: the case the page is about.
+        // Ставки падают, купоны идут во вклады, рынок следует кривой: тот случай, ради которого страница.
+        await page.addInitScript(() => {
+            localStorage.clear();
+            localStorage.setItem(
+                'kupona.inputs',
+                JSON.stringify({
+                    scenario: {
+                        amount: 100000,
+                        horizonYears: 5,
+                        reinvestPercent: 0,
+                        marketYieldPercent: null,
+                        reinvestFollows: true,
+                        marketFollowsCurve: true,
+                        curve: [
+                            { t: 0, delta: 0 },
+                            { t: 3, delta: -6 },
+                            { t: 14, delta: -6 },
+                        ],
+                    },
+                }),
+            );
+        });
         await page.goto(server.url);
         await page.getByRole('button', { name: button }).click();
         await page.waitForTimeout(GROW_MS);

@@ -3,6 +3,7 @@
  * Что говорит каждая нода цепочки, данными: ключ сообщения и числа. Числа форматирует и переводит интерфейс.
  */
 import type { MessageKey } from '@/i18n';
+import { isFlat, shiftAt } from '@/core/rates';
 import type { Evaluated } from './model';
 
 /** A number with its meaning, so that the interface knows how to print it. / Число со смыслом: интерфейс знает, как его печатать. */
@@ -33,12 +34,15 @@ export type StepId = 'accrual' | 'compound' | 'depositResult' | 'purchase' | 'co
 
 export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'depositResult', Step> {
     const run = e.comparison.deposit;
+    const path = e.scenario.path ?? [];
+    const cap = { kind: 'cap', value: e.deposit.capitalization } as const;
+    const atHorizon = Math.max(e.deposit.rate + shiftAt(path, run.horizon), 0);
     return {
         accrual: {
             title: 'node.accrual',
             headline: say('step.accrual.headline', count(run.capitalizations)),
             lines: [
-                say('step.accrual.rate', percent(e.deposit.rate), { kind: 'cap', value: e.deposit.capitalization }),
+                isFlat(path) ? say('step.accrual.rate', percent(e.deposit.rate), cap) : say('step.accrual.rateMoves', percent(e.deposit.rate), percent(atHorizon), cap),
                 say('step.accrual.effective', percent(run.effectiveRate)),
                 say('step.accrual.held', { kind: 'years', value: run.horizon }),
             ],
@@ -58,9 +62,7 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
 
 export function bondSteps(e: Evaluated): Record<'purchase' | 'coupons' | 'exit' | 'bondResult', Step> {
     const run = e.comparison.bond;
-    // The interface does not offer "into deposits" yet: that option falls back to the deposit's own rate.
-    // Интерфейс пока не предлагает «во вклады»: этот вариант считается как ставка самого вклада.
-    const reinvest = typeof e.scenario.reinvestRate === 'number' ? e.scenario.reinvestRate : e.deposit.rate;
+    const rate = e.scenario.reinvestRate;
     return {
         purchase: {
             title: 'node.purchase',
@@ -77,7 +79,11 @@ export function bondSteps(e: Evaluated): Record<'purchase' | 'coupons' | 'exit' 
             lines: [
                 say('step.coupons.received', money(run.couponsSum)),
                 say('step.coupons.each', money(e.bond.couponRub)),
-                reinvest > 0 ? say('step.coupons.reinvested', percent(reinvest), money(run.reinvestGain)) : say('step.coupons.idle'),
+                rate === 'deposit'
+                    ? say('step.coupons.reinvestedDeposit', money(run.reinvestGain))
+                    : rate > 0
+                      ? say('step.coupons.reinvested', percent(rate), money(run.reinvestGain))
+                      : say('step.coupons.idle'),
             ],
         },
         exit: run.atMaturity
