@@ -43,13 +43,13 @@ export interface LinkDef {
 
 const W = 340;
 const COL = [0, 420, 840] as const;
-const ROW1 = 484;
+const ROW1 = 444;
 const STEP = 252;
 
 export const NODES: readonly NodeDef[] = [
-    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 250 },
-    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 420 },
-    { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 310 },
+    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 310 },
+    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 380 },
+    { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 380 },
 
     // You edit the curve of rates here, but it grows after the first calculation: the first screen stays three nodes.
     // Кривую правят здесь, но она вырастает после первого расчёта: первый экран остаётся из трёх нод.
@@ -67,7 +67,7 @@ export const NODES: readonly NodeDef[] = [
     // Same height and row as the bond result: the link between them is a straight line, not a hook.
     // Той же высоты и в том же ряду, что итог облигации: связь между ними прямая, а не крючок.
     { id: 'compare', branch: 'both', level: 5, x: COL[1], y: ROW1 + STEP * 3, w: W, h: 210 },
-    { id: 'chart', branch: 'both', level: 6, x: COL[1] + W / 2 - 400, y: ROW1 + STEP * 3 + 210 + 64, w: 800, h: 340 },
+    { id: 'chart', branch: 'both', level: 6, x: COL[1] + W / 2 - 400, y: ROW1 + STEP * 3 + 210 + 64, w: 800, h: 352 },
 ];
 
 export const LAST_LEVEL = Math.max(...NODES.map((n) => n.level));

@@ -85,7 +85,8 @@ const atHorizon = computed(() => t('rates.end', [formatPercent(Math.max(rate.val
     position: relative;
     height: 14px;
     margin-top: -14px;
-    font-size: 11px;
+    /* The editor draws its labels at 8 units of a 280-unit-wide picture; the node body is 312 wide, so 8 × 312 / 280. / Редактор рисует подписи размером 8 в картинке шириной 280; тело ноды 312, значит 8 × 312 / 280. */
+    font-size: 8.9px;
     color: var(--tao-color-text-muted, inherit);
     pointer-events: none;
 }

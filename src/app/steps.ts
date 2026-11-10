@@ -50,12 +50,20 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
         compound: {
             title: 'node.compound',
             headline: say('step.compound.headline', money(run.compoundExtra)),
-            lines: [say('step.compound.simple', money(run.simpleProfit)), say('step.compound.profit', money(run.profit)), say('step.compound.hint')],
+            lines: [
+                say('step.compound.simple', money(run.simpleProfit)),
+                say('step.compound.profit', money(run.profit + run.tax)),
+                run.tax > 0 ? say('step.compound.tax', money(run.tax)) : say('step.compound.hint'),
+            ],
         },
         depositResult: {
             title: 'node.depositResult',
             headline: say('step.depositResult.headline', money(run.finalValue)),
-            lines: [say('step.depositResult.profit', money(run.profit)), say('step.depositResult.cagr', percent(run.cagr))],
+            lines: [
+                say('step.depositResult.profit', money(run.profit)),
+                say('step.depositResult.cagr', percent(run.cagr)),
+                ...(run.tax > 0 ? [say('step.depositResult.tax', money(run.tax))] : []),
+            ],
         },
     };
 }
@@ -71,6 +79,7 @@ export function bondSteps(e: Evaluated): Record<'purchase' | 'coupons' | 'exit' 
                 say('step.purchase.price', money(run.cleanPrice), money(run.accrued), money(run.dirtyPrice)),
                 say('step.purchase.paid', money(run.spent), money(run.leftover)),
                 say('step.purchase.yields', percent(e.quote.ytm ?? 0), percent(e.quote.currentYield)),
+                ...(run.buyCommission > 0 ? [say('step.purchase.commission', money(run.buyCommission))] : []),
             ],
         },
         coupons: {
@@ -97,14 +106,15 @@ export function bondSteps(e: Evaluated): Record<'purchase' | 'coupons' | 'exit' 
                   headline: say('step.exitSale.headline', money(run.exitValue)),
                   lines: [
                       say('step.exitSale.market', percent(run.marketYield, 2)),
-                      say('step.exitSale.price', money(run.pieces > 0 ? run.exitValue / run.pieces : 0)),
+                      say('step.exitSale.price', money(run.pieces > 0 ? (run.exitValue + run.sellCommission) / run.pieces : 0)),
+                      ...(run.sellCommission > 0 ? [say('step.exitSale.commission', money(run.sellCommission))] : []),
                   ],
               },
         bondResult: {
             title: 'node.bondResult',
             headline: say('step.bondResult.headline', money(run.finalValue)),
             lines: [
-                say('step.bondResult.profit', money(run.profit)),
+                run.taxPaid > 0 ? say('step.bondResult.profitTax', money(run.profit), money(run.taxPaid)) : say('step.bondResult.profit', money(run.profit)),
                 say('step.bondResult.cagr', percent(run.cagr)),
                 say('step.bondResult.promise', percent(e.quote.ytm ?? 0)),
             ],

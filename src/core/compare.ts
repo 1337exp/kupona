@@ -4,9 +4,10 @@
  */
 import { type Bond, type BondBuy, type Payment, EPS, accruedInterest, bondQuote, couponSchedule, dirtyValue, reinvestedValueBy } from './bond';
 import { parseDate } from './dates';
-import { type Deposit, type DepositRun, depositValue, simulateDeposit } from './deposit';
+import { type Deposit, type DepositRun, depositNet, simulateDeposit } from './deposit';
 import { type RatePath, compounding, shiftAt } from './rates';
 import { bisect } from './solve';
+import { afterTax } from './tax';
 
 export interface Scenario {
     /** How long we hold, years. Longer than the bond lives means until maturity. / Сколько держим, лет; больше срока облигации значит до погашения. */
@@ -32,6 +33,10 @@ export interface BondOptions {
     wholePieces?: boolean;
     /** The deposit's rate today: needed when coupons go into deposits (`reinvestRate: 'deposit'`). / Ставка вклада сегодня: нужна, когда купоны идут во вклады. */
     depositRate?: number;
+    /** Broker commission on each trade (the purchase, and the sale before maturity), a fraction of the sum. / Комиссия брокера с каждой сделки (покупка и продажа до погашения). */
+    commission?: number;
+    /** Tax on the whole profit of the bond (coupons, what they earned, the price), paid at the end. / Налог на всю прибыль по облигации. */
+    taxRate?: number;
 }
 
 export interface BondRun {
@@ -39,8 +44,14 @@ export interface BondRun {
     accrued: number;
     dirtyPrice: number;
     pieces: number;
-    /** Paid for the pieces. / Заплачено за штуки. */
+    /** Paid for the pieces, commission included. / Заплачено за штуки, с комиссией. */
     spent: number;
+    /** The commission of the purchase. / Комиссия при покупке. */
+    buyCommission: number;
+    /** The commission of the sale (none at maturity). / Комиссия при продаже (при погашении нет). */
+    sellCommission: number;
+    /** Tax on the profit. / Налог на прибыль. */
+    taxPaid: number;
     /** Change that did not buy a whole piece. / Сдача, на которую не хватило целой штуки. */
     leftover: number;
     /** The horizon actually used (cut to the bond's life). / Горизонт, который реально использован. */
@@ -81,18 +92,25 @@ export function simulateBond(bond: Bond, buy: BondBuy, amount: number, scenario:
     if (r === 'deposit' && options.depositRate === undefined) throw new RangeError("reinvestRate 'deposit' needs options.depositRate");
     const factor = r === 'deposit' ? compounding(path, options.depositRate!, life).factor : (from: number, to: number): number => (1 + r) ** (to - from);
 
-    const pieces = options.wholePieces === false ? amount / dirtyPrice : Math.floor(amount / dirtyPrice + 1e-9);
-    const spent = pieces * dirtyPrice;
+    const fee = options.commission ?? 0;
+    const taxRate = options.taxRate ?? 0;
+    const unit = dirtyPrice * (1 + fee);
+    const pieces = options.wholePieces === false ? amount / unit : Math.floor(amount / unit + 1e-9);
+    const spent = pieces * unit;
     const leftover = amount - spent;
 
-    const valueAt = (years: number): number =>
-        pieces * (dirtyValue(schedule, years, yieldAt(years)) + reinvestedValueBy(schedule, years, factor)) + leftover;
+    // What is in hand if everything is closed at `years`: the bonds sold (less the commission), the coupons and what they earned,
+    // the change; then the tax on the profit. / Что на руках, если всё закрыть в `years`: облигации проданы (за вычетом комиссии), купоны и их заработок, сдача; затем налог на прибыль.
+    const grossAt = (years: number): number =>
+        pieces * ((1 - fee) * dirtyValue(schedule, years, yieldAt(years)) + reinvestedValueBy(schedule, years, factor)) + leftover;
+    const valueAt = (years: number): number => afterTax(grossAt(years), amount, taxRate);
 
     const paid: Payment[] = schedule.filter((p) => p.t <= horizon + EPS);
     const couponsSum = pieces * paid.reduce((s, p) => s + p.coupon, 0);
     const paidTotal = pieces * paid.reduce((s, p) => s + p.coupon + p.redemption, 0);
     const marketYield = yieldAt(horizon);
-    const exitValue = atMaturity ? pieces * bond.nominal : pieces * dirtyValue(schedule, horizon, marketYield);
+    const sold = atMaturity ? 0 : pieces * dirtyValue(schedule, horizon, marketYield);
+    const exitValue = atMaturity ? pieces * bond.nominal : (1 - fee) * sold;
     const reinvestGain = pieces * reinvestedValueBy(schedule, horizon, factor) - paidTotal;
     const finalValue = valueAt(horizon);
 
@@ -102,6 +120,9 @@ export function simulateBond(bond: Bond, buy: BondBuy, amount: number, scenario:
         dirtyPrice,
         pieces,
         spent,
+        buyCommission: pieces * dirtyPrice * fee,
+        sellCommission: fee * sold,
+        taxPaid: grossAt(horizon) - finalValue,
         leftover,
         horizon,
         atMaturity,
@@ -131,7 +152,7 @@ export function compare(deposit: Deposit, bond: Bond, buy: BondBuy, scenario: Sc
     const path = scenario.path ?? [];
     const bondRun = simulateBond(bond, buy, deposit.amount, scenario, { depositRate: deposit.rate, ...options });
     const depositRun = simulateDeposit(deposit, bondRun.horizon, path);
-    const breakEvenRate = bisect((rate) => depositValue({ ...deposit, rate }, bondRun.horizon, path), bondRun.finalValue, 0, 5);
+    const breakEvenRate = bisect((rate) => depositNet({ ...deposit, rate }, bondRun.horizon, path), bondRun.finalValue, 0, 5);
     return {
         deposit: depositRun,
         bond: bondRun,

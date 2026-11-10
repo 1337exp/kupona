@@ -10,7 +10,7 @@ import { OFZ_26248 } from '@/core/presets';
 import { type CurvePoint, curveShape, curveToPath, isValidCurve, sanitizeCurve } from './curve';
 
 export interface Inputs {
-    deposit: { ratePercent: number | null; capitalization: Capitalization; termMonths: number | null };
+    deposit: { ratePercent: number | null; capitalization: Capitalization; termMonths: number | null; taxPercent: number | null };
     bond: {
         nominal: number | null;
         cleanPricePercent: number | null;
@@ -18,6 +18,10 @@ export interface Inputs {
         paymentsPerYear: number;
         buyDate: string | null;
         maturity: string | null;
+        /** Broker commission on each trade, percent of the sum. / Комиссия брокера с каждой сделки, процент от суммы. */
+        commissionPercent: number | null;
+        /** Tax on the profit of the bond, percent. / Налог на прибыль по облигации, процент. */
+        taxPercent: number | null;
     };
     scenario: {
         amount: number | null;
@@ -34,13 +38,13 @@ export interface Inputs {
     };
 }
 
-export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon' | 'curve';
+export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon' | 'curve' | 'tax' | 'commission';
 
 /** The OFZ 26248 example: a bond, a typical deposit, five years held. / Пример: ОФЗ 26248, обычный вклад, держим пять лет. */
 export function defaultInputs(): Inputs {
     const { bond, buy } = OFZ_26248;
     return {
-        deposit: { ratePercent: 14, capitalization: 'monthly', termMonths: 12 },
+        deposit: { ratePercent: 14, capitalization: 'monthly', termMonths: 12, taxPercent: 0 },
         bond: {
             nominal: bond.nominal,
             cleanPricePercent: buy.cleanPricePercent,
@@ -48,6 +52,8 @@ export function defaultInputs(): Inputs {
             paymentsPerYear: 2,
             buyDate: buy.date,
             maturity: bond.maturity,
+            commissionPercent: 0,
+            taxPercent: 0,
         },
         scenario: { amount: 100_000, horizonYears: 5, reinvestPercent: 0, marketYieldPercent: null, reinvestFollows: false, marketFollowsCurve: false, curve: curveShape('flat') },
     };
@@ -99,6 +105,9 @@ export function evaluate(inputs: Inputs): Evaluation {
     if (!(num(d.termMonths) >= 1) || !Number.isInteger(d.termMonths)) problems.push('term');
     if (!s.reinvestFollows && !(num(s.reinvestPercent) >= 0)) problems.push('reinvest');
     if (!isValidCurve(s.curve)) problems.push('curve');
+    const within = (v: number | null, max: number): boolean => num(v) >= 0 && num(v) <= max;
+    if (!within(d.taxPercent, 100) || !within(b.taxPercent, 100)) problems.push('tax');
+    if (!within(b.commissionPercent, 50)) problems.push('commission');
     if (s.marketYieldPercent !== null && !(s.marketYieldPercent > -50)) problems.push('marketYield');
     if (!(s.horizonYears > 0)) problems.push('horizon');
     if (problems.length) return { ok: false, problems };
@@ -108,6 +117,7 @@ export function evaluate(inputs: Inputs): Evaluation {
         rate: d.ratePercent! / 100,
         capitalization: d.capitalization,
         termMonths: d.termMonths!,
+        taxRate: d.taxPercent! / 100,
     };
     const scenario: Scenario = {
         horizonYears: s.horizonYears,
@@ -116,7 +126,7 @@ export function evaluate(inputs: Inputs): Evaluation {
         path: curveToPath(s.curve),
     };
     const quote = bondQuote(bond, buy);
-    const comparison = compare(deposit, bond, buy, scenario);
+    const comparison = compare(deposit, bond, buy, scenario, { commission: b.commissionPercent! / 100, taxRate: b.taxPercent! / 100 });
     return { ok: true, value: { bond, buy, deposit, scenario, quote, comparison, lifeYears: quote.years } };
 }
 
@@ -153,6 +163,7 @@ export function sanitizeInputs(raw: unknown): Inputs {
             ratePercent: numberOrNull(d.ratePercent, base.deposit.ratePercent),
             capitalization: CAPITALIZATIONS.includes(d.capitalization as Capitalization) ? (d.capitalization as Capitalization) : base.deposit.capitalization,
             termMonths: numberOrNull(d.termMonths, base.deposit.termMonths),
+            taxPercent: numberOrNull(d.taxPercent, base.deposit.taxPercent),
         },
         bond: {
             nominal: numberOrNull(b.nominal, base.bond.nominal),
@@ -161,6 +172,8 @@ export function sanitizeInputs(raw: unknown): Inputs {
             paymentsPerYear: PAYMENTS_PER_YEAR.includes(b.paymentsPerYear as number) ? (b.paymentsPerYear as number) : base.bond.paymentsPerYear,
             buyDate: dateOrNull(b.buyDate, base.bond.buyDate),
             maturity: dateOrNull(b.maturity, base.bond.maturity),
+            commissionPercent: numberOrNull(b.commissionPercent, base.bond.commissionPercent),
+            taxPercent: numberOrNull(b.taxPercent, base.bond.taxPercent),
         },
         scenario: {
             amount: numberOrNull(s.amount, base.scenario.amount),

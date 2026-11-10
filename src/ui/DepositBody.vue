@@ -24,6 +24,9 @@ const options = computed(() => CAPITALIZATIONS.map((c) => ({ value: c, label: t(
         <Field class="wide" :label="t('field.capitalization')">
             <TaoSelect v-model="d.capitalization" :options="options" :clearable="false" />
         </Field>
+        <Field :label="t('field.depositTax')" :error="problems.includes('tax')">
+            <TaoInputNumber v-model="d.taxPercent" :min="0" :max="100" :step="1" :controls="false" />
+        </Field>
         <p class="hint wide">{{ t('hint.deposit') }}</p>
     </div>
 </template>

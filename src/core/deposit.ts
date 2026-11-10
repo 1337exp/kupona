@@ -1,4 +1,5 @@
 import { type RatePath, isFlat, shiftAt } from './rates';
+import { afterTax } from './tax';
 
 /**
  * A bank deposit. The rate is nominal yearly. When the term ends, the whole balance (with the interest) is put into a new term
@@ -30,6 +31,8 @@ export interface Deposit {
     capitalization: Capitalization;
     /** Term of one deposit contract, months. / Срок одного вклада, месяцев. */
     termMonths: number;
+    /** Tax on the interest, a fraction, paid at the end; none by default. / Налог на проценты, доля, в конце; по умолчанию нет. */
+    taxRate?: number;
 }
 
 /** Growth factor over `years` inside one term. / Во сколько раз вырастет сумма за `years` внутри одного срока. */
@@ -68,6 +71,11 @@ export function depositValue(dep: Deposit, years: number, path: RatePath = []): 
     return balance * growth(tail, rateAt(dep, path, terms * term), dep.capitalization);
 }
 
+/** Balance after the tax on the interest. / Остаток после налога на проценты. */
+export function depositNet(dep: Deposit, years: number, path: RatePath = []): number {
+    return afterTax(depositValue(dep, years, path), dep.amount, dep.taxRate ?? 0);
+}
+
 /** What a year really gives: the effective yearly rate. / Сколько на деле даёт год: эффективная годовая ставка. */
 export function effectiveRate(dep: Deposit): number {
     return depositValue(dep, 1) / dep.amount - 1;
@@ -77,7 +85,11 @@ export interface DepositRun {
     horizon: number;
     /** How many times interest was added to the balance. / Сколько раз проценты прибавлялись к остатку. */
     capitalizations: number;
+    /** The balance after the tax. / Остаток после налога. */
     finalValue: number;
+    /** The tax on the interest. / Налог на проценты. */
+    tax: number;
+    /** Profit after the tax. / Прибыль после налога. */
     profit: number;
     /** Interest if nothing was ever added to the balance (`amount × rate × years`). / Проценты без капитализации. */
     simpleProfit: number;
@@ -89,7 +101,8 @@ export interface DepositRun {
 }
 
 export function simulateDeposit(dep: Deposit, horizon: number, path: RatePath = []): DepositRun {
-    const finalValue = depositValue(dep, horizon, path);
+    const gross = depositValue(dep, horizon, path);
+    const finalValue = depositNet(dep, horizon, path);
     const profit = finalValue - dep.amount;
     const term = dep.termMonths / 12;
     const terms = Math.floor(horizon / term + 1e-9);
@@ -106,9 +119,11 @@ export function simulateDeposit(dep: Deposit, horizon: number, path: RatePath = 
         horizon,
         capitalizations: terms * perTerm + inTail,
         finalValue,
+        tax: gross - finalValue,
         profit,
         simpleProfit,
-        compoundExtra: profit - simpleProfit,
+        // Both before the tax: the tax is shown on its own. / Оба до налога: налог показан отдельно.
+        compoundExtra: gross - dep.amount - simpleProfit,
         cagr: horizon > 0 ? (finalValue / dep.amount) ** (1 / horizon) - 1 : 0,
         effectiveRate: effectiveRate(dep),
     };

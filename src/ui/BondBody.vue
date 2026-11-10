@@ -33,6 +33,12 @@ const perYear = computed(() => PAYMENTS_PER_YEAR.map((n) => ({ value: n, label: 
         <Field :label="t('field.maturity')" :error="bad('date', 'matured')">
             <TaoDate v-model="b.maturity" editable />
         </Field>
+        <Field :label="t('field.commission')" :error="bad('commission')">
+            <TaoInputNumber v-model="b.commissionPercent" :min="0" :max="50" :step="0.05" :controls="false" />
+        </Field>
+        <Field :label="t('field.bondTax')" :error="bad('tax')">
+            <TaoInputNumber v-model="b.taxPercent" :min="0" :max="100" :step="1" :controls="false" />
+        </Field>
         <p class="hint wide">{{ t('hint.bond') }}</p>
         <TaoButton class="wide" variant="ghost" tone="neutral" size="small" @click="store.loadExample()">{{ t('app.example') }}</TaoButton>
     </div>

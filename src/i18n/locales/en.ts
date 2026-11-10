@@ -28,6 +28,8 @@ const en: typeof ru = {
         date: 'dates',
         matured: 'the bond has already matured',
         curve: 'rate curve',
+        tax: 'tax',
+        commission: 'commission',
     },
     cap: {
         end: 'at the end of the term',
@@ -77,6 +79,9 @@ const en: typeof ru = {
         perYear: 'Payments a year',
         nominal: 'Face value, ₽',
         buyDate: 'Settlement (T+1)',
+        depositTax: 'Tax on interest, %',
+        commission: 'Commission, %',
+        bondTax: 'Tax on profit, %',
         maturity: 'Maturity',
     },
     rates: {
@@ -103,17 +108,20 @@ const en: typeof ru = {
             simple: 'Without capitalization it would be {0}',
             profit: 'All the profit of the deposit {0}',
             hint: 'The bond does the same if you put the coupons to work',
+            tax: 'Tax on the interest {0}',
         },
         depositResult: {
             headline: '{0}',
             profit: 'Profit {0}',
             cagr: '{0} a year on average',
+            tax: 'Tax {0} is already taken off',
         },
         purchase: {
             headline: '{0} pcs',
             price: 'Price {0} + accrued {1} = {2} each',
             paid: 'Paid {0}, change {1}',
             yields: 'Yield to maturity {0}, current {1}',
+            commission: 'Commission {0}',
         },
         coupons: {
             headline: '{0} payments',
@@ -127,6 +135,7 @@ const en: typeof ru = {
             headline: '{0}',
             market: 'Market yield after the purchase {0}',
             price: 'Price of a bond with accrued interest {0}',
+            commission: 'Commission on the sale {0}',
         },
         exitMaturity: {
             headline: '{0}',
@@ -136,6 +145,7 @@ const en: typeof ru = {
         bondResult: {
             headline: '{0}',
             profit: 'Profit {0}',
+            profitTax: 'Profit {0}, tax {1} taken off',
             cagr: '{0} a year on average',
             promise: 'The promised {0} comes true only if coupons are put at the same {0}',
         },

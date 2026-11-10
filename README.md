@@ -22,7 +22,7 @@ npm run screenshot  # docs/media/*.png for the README, needs Chrome or Edge
 
 ## What it does
 
-Three nodes you type into: **Deposit** (rate, how interest is added, term), **Scenario** (the amount, how long you hold, where coupons go, where the market goes after the purchase) and **Bond** (price, coupon, payments a year, nominal, the two dates). The page opens with the OFZ 26248 example.
+Three nodes you type into: **Deposit** (rate, how interest is added, term, tax on the interest), **Scenario** (the amount, how long you hold, where coupons go, where the market goes after the purchase) and **Bond** (price, coupon, payments a year, nominal, the two dates, broker commission, tax on the profit). Commission and taxes are 0 until you set them; each side has its own tax rate, because the rules for deposits and bonds differ. The page opens with the OFZ 26248 example.
 
 **Rates.** A fourth node, the curve of the deposit rate over the years, grows in the middle after the first calculation. Drag its points (double click adds one, Alt+click removes it), or take a ready shape: as now, falling, rising. The deposit is renewed at the rate of the day. In the Scenario, coupons can go into deposits (they earn the rate of the day) and the market after the purchase can follow the curve: the yield of the bond moves by the same points, so the price at the sale moves too. This is the part that answers "what if rates fall": a deposit cannot keep its rate, a bond has locked its coupons in.
 
@@ -33,9 +33,9 @@ Three nodes you type into: **Deposit** (rate, how interest is added, term), **Sc
 | Rates | the curve of the deposit rate; where it stands at the horizon |
 | Accruals | how many times interest was added, the effective rate of the deposit, where the rate ends if it moves |
 | Interest on interest | how much of the profit is plain interest and how much is interest on interest |
-| Purchase | pieces bought, clean price + accrued interest, yield to maturity, current yield |
+| Purchase | pieces bought, clean price + accrued interest, yield to maturity, current yield, the commission |
 | Coupons | payments received, and whether they lie idle or earn something |
-| Sale / Maturity | what the bond brings at the horizon, at the market yield you set |
+| Sale / Maturity | what the bond brings at the horizon, at the market yield you set (less the commission of the sale) |
 | Results, Comparison | final sums, who is ahead and by how much, the deposit rate that ties |
 | Value over time | the deposit, the bond (price + coupons + what they earned) and the line the yield "promises" |
 
@@ -48,13 +48,14 @@ Nodes can be dragged, the canvas panned and zoomed. Russian and English, light a
 - **Bond** (`bond.ts`): coupon schedule counted back from maturity in fixed periods (OFZ: 182 days), accrued interest, yield to maturity, current yield, durations, the value of the payments still ahead at any yield (the price when you sell early), and the value of the payments already received if each is reinvested at a given rate.
 - **Deposit** (`deposit.ts`): nominal rate, capitalization (end of term, daily, monthly, quarterly, yearly), term; the balance is renewed term after term, each renewal at the rate of that day.
 - **Rates** (`rates.ts`): a path of shifts against today's rates; money that earns `base + shift` moment by moment, never below zero. Without a path nothing moves and the numbers are the plain ones.
+- **Costs** (`tax.ts`, and the options of `compare.ts`): broker commission on the purchase and on a sale before maturity (the bond is paid off at maturity without one), and a tax on the profit: a share of what was earned above the money put in, paid at the end, nothing on a loss. Charts and "value at a moment" are shown after the tax and the commission of closing right then.
 - **Comparison** (`compare.ts`): the same money and horizon on both sides, one scenario, the difference, and the deposit rate at which it ties with the bond.
 
 Checked against a real quote: OFZ 26248 on smart-lab.ru (`src/core/presets.ts`): accrued interest 54.03 ₽, yield 16.66%, current yield 15.43%, duration within two days. The page's "years to maturity" (13.56) is two weeks behind its own price: counted from the settlement date it is 13.52.
 
 The point of the whole thing, in numbers from that example: the 16.66% only comes true if every coupon is reinvested at 16.66%. With coupons lying idle the same bond gives about 9% a year; with coupons put at 14% about 15.2%.
 
-Assumptions: whole bonds only (the change lies idle), a deposit keeps its rate for the term and a tail shorter than a term earns the rate of the last renewal, the whole price is discounted at one yield of the day (a flat curve, as for a quote on the screen), the bond's yield moves in parallel with the deposit rate (the spread stays).
+Assumptions: the tax is one share of the whole profit at the end (no timing, tax-free amounts or offsets), the commission is a share of the sum of each trade, whole bonds only (the change lies idle), a deposit keeps its rate for the term and a tail shorter than a term earns the rate of the last renewal, the whole price is discounted at one yield of the day (a flat curve, as for a quote on the screen), the bond's yield moves in parallel with the deposit rate (the spread stays).
 
 ## How it is built
 
@@ -71,11 +72,11 @@ tests/     core: exchange page numbers, hand-computed cases, invariants; tests/a
 
 The chain is built for you, so the canvas has no pins to drag. The panels sit beside the canvas, not inside it: the canvas captures the pointer and would swallow the clicks.
 
-Tests were checked by breaking the code on purpose (103 mutants, all caught): `node E:\job\base\snippets\mutate.mjs`.
+Tests were checked by breaking the code on purpose (138 mutants, all caught): `node E:\job\base\snippets\mutate.mjs`.
 
 ## Not yet
 
-Taxes and broker commission. Deposits in another currency (needs a rate of exchange). Bonds with floating or amortizing coupons. Loading a bond by ticker. Saving node positions, undo, a file to save and open. Touch use is not checked on a real device.
+Deposits in another currency (needs a rate of exchange). Bonds with floating or amortizing coupons. Loading a bond by ticker. Saving node positions, undo, a file to save and open. Touch use is not checked on a real device.
 
 ## License
 
