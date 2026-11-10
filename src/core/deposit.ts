@@ -1,3 +1,4 @@
+import { type Exchange, exchangeAt } from './currency';
 import { type RatePath, isFlat, shiftAt } from './rates';
 import { afterTax } from './tax';
 
@@ -33,7 +34,22 @@ export interface Deposit {
     termMonths: number;
     /** Tax on the interest, a fraction, paid at the end; none by default. / Налог на проценты, доля, в конце; по умолчанию нет. */
     taxRate?: number;
+    /**
+     * The deposit is in a foreign currency: `amount` is still the roubles put in, they are changed at today's rate, the interest
+     * is in the currency, and the balance is changed back at the rate of the day. `rate` is the rate of that currency.
+     * Вклад в иностранной валюте: `amount` по-прежнему рубли, их меняют по сегодняшнему курсу, проценты в валюте, остаток меняют
+     * обратно по курсу того дня. `rate` это ставка по этой валюте.
+     */
+    exchange?: Exchange;
 }
+
+/** The deposit counted in units of its own currency (the roubles changed at today's rate); a rouble one stays as it is. / Вклад в единицах своей валюты. */
+function inUnits(dep: Deposit): Deposit {
+    return dep.exchange ? { ...dep, amount: dep.amount / dep.exchange.rate0, exchange: undefined } : dep;
+}
+
+/** Roubles for one unit of the deposit's currency after `years` (1 for a rouble deposit). / Рублей за единицу валюты вклада через `years` лет. */
+const toRoubles = (dep: Deposit, years: number): number => (dep.exchange ? exchangeAt(dep.exchange, years) : 1);
 
 /** Growth factor over `years` inside one term. / Во сколько раз вырастет сумма за `years` внутри одного срока. */
 function growth(years: number, rate: number, capitalization: Capitalization): number {
@@ -58,6 +74,10 @@ const rateAt = (dep: Deposit, path: RatePath, start: number): number => Math.max
  * Остаток через `years` лет (сроки продлеваются). С движущейся `path` каждое продление берёт ставку того дня.
  */
 export function depositValue(dep: Deposit, years: number, path: RatePath = []): number {
+    return valueInUnits(inUnits(dep), years, path) * toRoubles(dep, years);
+}
+
+function valueInUnits(dep: Deposit, years: number, path: RatePath): number {
     if (years <= 0) return dep.amount;
     const term = dep.termMonths / 12;
     const terms = Math.floor(years / term + 1e-9);
@@ -73,12 +93,15 @@ export function depositValue(dep: Deposit, years: number, path: RatePath = []): 
 
 /** Balance after the tax on the interest. / Остаток после налога на проценты. */
 export function depositNet(dep: Deposit, years: number, path: RatePath = []): number {
-    return afterTax(depositValue(dep, years, path), dep.amount, dep.taxRate ?? 0);
+    // The tax is on the interest in the currency: a change of the rate is not interest. / Налог на проценты в валюте: перемена курса не проценты.
+    const u = inUnits(dep);
+    return afterTax(valueInUnits(u, years, path), u.amount, dep.taxRate ?? 0) * toRoubles(dep, years);
 }
 
 /** What a year really gives: the effective yearly rate. / Сколько на деле даёт год: эффективная годовая ставка. */
 export function effectiveRate(dep: Deposit): number {
-    return depositValue(dep, 1) / dep.amount - 1;
+    const u = inUnits(dep);
+    return valueInUnits(u, 1, []) / u.amount - 1;
 }
 
 export interface DepositRun {
@@ -89,8 +112,10 @@ export interface DepositRun {
     finalValue: number;
     /** The tax on the interest. / Налог на проценты. */
     tax: number;
-    /** Profit after the tax. / Прибыль после налога. */
+    /** Profit after the tax and the change of the exchange rate. / Прибыль после налога и перемены курса. */
     profit: number;
+    /** What the change of the exchange rate gave (or took) on the money put in; 0 for a rouble deposit. / Что дала (или отняла) перемена курса; 0 для рублёвого вклада. */
+    fxGain: number;
     /** Interest if nothing was ever added to the balance (`amount × rate × years`). / Проценты без капитализации. */
     simpleProfit: number;
     /** What the interest on interest added on top of that. / Сколько добавили проценты на проценты. */
@@ -101,17 +126,19 @@ export interface DepositRun {
 }
 
 export function simulateDeposit(dep: Deposit, horizon: number, path: RatePath = []): DepositRun {
-    const gross = depositValue(dep, horizon, path);
+    const u = inUnits(dep);
+    const rate = toRoubles(dep, horizon);
+    const gross = valueInUnits(u, horizon, path) * rate;
     const finalValue = depositNet(dep, horizon, path);
     const profit = finalValue - dep.amount;
     const term = dep.termMonths / 12;
     const terms = Math.floor(horizon / term + 1e-9);
     const tail = horizon - terms * term;
-    let simpleProfit = dep.amount * dep.rate * horizon;
+    let simpleProfit = u.amount * dep.rate * horizon * rate;
     if (!isFlat(path) && horizon > 0) {
         simpleProfit = 0;
-        for (let k = 0; k < terms; k++) simpleProfit += dep.amount * rateAt(dep, path, k * term) * term;
-        simpleProfit += dep.amount * rateAt(dep, path, terms * term) * Math.max(tail, 0);
+        for (let k = 0; k < terms; k++) simpleProfit += u.amount * rateAt(dep, path, k * term) * term * rate;
+        simpleProfit += u.amount * rateAt(dep, path, terms * term) * Math.max(tail, 0) * rate;
     }
     const perTerm = dep.capitalization === 'end' ? 1 : Math.floor(term * CAPITALIZATIONS_PER_YEAR[dep.capitalization] + 1e-9);
     const inTail = dep.capitalization === 'end' ? 0 : Math.floor(tail * CAPITALIZATIONS_PER_YEAR[dep.capitalization] + 1e-9);
@@ -121,9 +148,11 @@ export function simulateDeposit(dep: Deposit, horizon: number, path: RatePath = 
         finalValue,
         tax: gross - finalValue,
         profit,
+        fxGain: dep.exchange ? u.amount * (rate - dep.exchange.rate0) : 0,
         simpleProfit,
-        // Both before the tax: the tax is shown on its own. / Оба до налога: налог показан отдельно.
-        compoundExtra: gross - dep.amount - simpleProfit,
+        // Both before the tax, in roubles at the rate of the day: the tax and the exchange are shown on their own.
+        // Оба до налога, в рублях по курсу дня: налог и курс показаны отдельно.
+        compoundExtra: gross - u.amount * rate - simpleProfit,
         cagr: horizon > 0 ? (finalValue / dep.amount) ** (1 / horizon) - 1 : 0,
         effectiveRate: effectiveRate(dep),
     };

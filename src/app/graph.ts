@@ -47,7 +47,7 @@ const ROW1 = 444;
 const STEP = 252;
 
 export const NODES: readonly NodeDef[] = [
-    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 310 },
+    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 380 },
     { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 380 },
     { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 380 },
 
@@ -57,7 +57,7 @@ export const NODES: readonly NodeDef[] = [
 
     { id: 'accrual', branch: 'deposit', level: 1, x: COL[0], y: ROW1, w: W, h: 200 },
     { id: 'compound', branch: 'deposit', level: 2, x: COL[0], y: ROW1 + STEP, w: W, h: 200 },
-    { id: 'depositResult', branch: 'deposit', level: 3, x: COL[0], y: ROW1 + STEP * 2, w: W, h: 160 },
+    { id: 'depositResult', branch: 'deposit', level: 3, x: COL[0], y: ROW1 + STEP * 2, w: W, h: 180 },
 
     { id: 'purchase', branch: 'bond', level: 1, x: COL[2], y: ROW1, w: W, h: 200 },
     { id: 'coupons', branch: 'bond', level: 2, x: COL[2], y: ROW1 + STEP, w: W, h: 200 },

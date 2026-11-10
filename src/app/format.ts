@@ -37,6 +37,10 @@ export function formatValue(v: Value, locale: LocaleCode, t: (key: MessageKey) =
             return formatYears(v.value, locale);
         case 'count':
             return formatNumber(v.value, locale);
+        case 'number':
+            return formatNumber(v.value, locale, v.digits ?? 2, v.digits ?? 2);
+        case 'text':
+            return v.value;
         case 'cap':
             return t(`cap.${v.value}`);
     }

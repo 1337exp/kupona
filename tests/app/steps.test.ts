@@ -11,7 +11,7 @@ const run = (patch: (i: Inputs) => void = () => {}): Evaluated => {
 };
 
 const num = (v: Value | undefined): number => {
-    if (!v || v.kind === 'cap') throw new Error('not a number');
+    if (!v || v.kind === 'cap' || v.kind === 'text') throw new Error('not a number');
     return v.value;
 };
 

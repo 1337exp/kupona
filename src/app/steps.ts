@@ -3,6 +3,7 @@
  * Что говорит каждая нода цепочки, данными: ключ сообщения и числа. Числа форматирует и переводит интерфейс.
  */
 import type { MessageKey } from '@/i18n';
+import { exchangeAt } from '@/core/currency';
 import { isFlat, shiftAt } from '@/core/rates';
 import type { Evaluated } from './model';
 
@@ -12,6 +13,8 @@ export type Value =
     | { kind: 'percent'; value: number; digits?: number }
     | { kind: 'years'; value: number }
     | { kind: 'count'; value: number }
+    | { kind: 'number'; value: number; digits?: number }
+    | { kind: 'text'; value: string }
     | { kind: 'cap'; value: 'end' | 'daily' | 'monthly' | 'quarterly' | 'yearly' };
 
 export interface Say {
@@ -28,6 +31,8 @@ export interface Step {
 const money = (value: number): Value => ({ kind: 'money', value });
 const percent = (value: number, digits?: number): Value => (digits === undefined ? { kind: 'percent', value } : { kind: 'percent', value, digits });
 const count = (value: number): Value => ({ kind: 'count', value });
+const number = (value: number, digits = 2): Value => ({ kind: 'number', value, digits });
+const text = (value: string): Value => ({ kind: 'text', value });
 const say = (key: MessageKey, ...args: Value[]): Say => ({ key, args });
 
 export type StepId = 'accrual' | 'compound' | 'depositResult' | 'purchase' | 'coupons' | 'exit' | 'bondResult';
@@ -36,6 +41,7 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
     const run = e.comparison.deposit;
     const path = e.scenario.path ?? [];
     const cap = { kind: 'cap', value: e.deposit.capitalization } as const;
+    const ex = e.deposit.exchange;
     const atHorizon = Math.max(e.deposit.rate + shiftAt(path, run.horizon), 0);
     return {
         accrual: {
@@ -44,7 +50,9 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
             lines: [
                 isFlat(path) ? say('step.accrual.rate', percent(e.deposit.rate), cap) : say('step.accrual.rateMoves', percent(e.deposit.rate), percent(atHorizon), cap),
                 say('step.accrual.effective', percent(run.effectiveRate)),
-                say('step.accrual.held', { kind: 'years', value: run.horizon }),
+                ex
+                    ? say('step.accrual.fx', money(e.deposit.amount), number(e.deposit.amount / ex.rate0), text(e.currency), number(ex.rate0))
+                    : say('step.accrual.held', { kind: 'years', value: run.horizon }),
             ],
         },
         compound: {
@@ -52,7 +60,7 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
             headline: say('step.compound.headline', money(run.compoundExtra)),
             lines: [
                 say('step.compound.simple', money(run.simpleProfit)),
-                say('step.compound.profit', money(run.profit + run.tax)),
+                say('step.compound.profit', money(run.simpleProfit + run.compoundExtra)),
                 run.tax > 0 ? say('step.compound.tax', money(run.tax)) : say('step.compound.hint'),
             ],
         },
@@ -63,6 +71,7 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
                 say('step.depositResult.profit', money(run.profit)),
                 say('step.depositResult.cagr', percent(run.cagr)),
                 ...(run.tax > 0 ? [say('step.depositResult.tax', money(run.tax))] : []),
+                ...(ex ? [say('step.depositResult.fx', number(ex.rate0), number(exchangeAt(ex, run.horizon)), money(run.fxGain))] : []),
             ],
         },
     };

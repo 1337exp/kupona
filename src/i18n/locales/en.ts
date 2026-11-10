@@ -30,6 +30,8 @@ const en: typeof ru = {
         curve: 'rate curve',
         tax: 'tax',
         commission: 'commission',
+        fx: 'exchange rate',
+        fxChange: 'rate change',
     },
     cap: {
         end: 'at the end of the term',
@@ -80,6 +82,9 @@ const en: typeof ru = {
         nominal: 'Face value, ₽',
         buyDate: 'Settlement (T+1)',
         depositTax: 'Tax on interest, %',
+        currency: 'Deposit currency',
+        fxRate: 'Rate today, ₽',
+        fxChange: 'Rate changes, % a year',
         commission: 'Commission, %',
         bondTax: 'Tax on profit, %',
         maturity: 'Maturity',
@@ -91,6 +96,8 @@ const en: typeof ru = {
         end: 'At the horizon the deposit rate is {0}',
     },
     hint: {
+        fx: 'The rate of a deposit in this currency. The rate on the day of the purchase and where it goes are yours: the figures are examples.',
+        scenarioFx: 'Coupons into deposits and the market on the curve exist only beside a rouble deposit.',
         deposit: 'The same percent gives different money depending on capitalization.',
         scenario: 'The same money and the same period for the deposit and the bond.',
         bond: 'Price and coupon from the bond page; accrued interest and yield are calculated.',
@@ -102,6 +109,7 @@ const en: typeof ru = {
             rateMoves: 'Rate {0} → {1} by the end, interest is added {2}',
             effective: 'A year really gives {0}: the effective rate',
             held: 'Held for {0}',
+            fx: '{0} = {1} {2} at {3}',
         },
         compound: {
             headline: '+{0}',
@@ -115,6 +123,7 @@ const en: typeof ru = {
             profit: 'Profit {0}',
             cagr: '{0} a year on average',
             tax: 'Tax {0} is already taken off',
+            fx: 'Rate {0} → {1}, from the rate {2}',
         },
         purchase: {
             headline: '{0} pcs',

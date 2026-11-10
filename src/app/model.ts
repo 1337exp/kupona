@@ -9,8 +9,22 @@ import { CAPITALIZATIONS, type Capitalization, type Deposit } from '@/core/depos
 import { OFZ_26248 } from '@/core/presets';
 import { type CurvePoint, curveShape, curveToPath, isValidCurve, sanitizeCurve } from './curve';
 
+/** Currencies of the deposit; the bond is always in roubles. / Валюты вклада; облигация всегда в рублях. */
+export type Currency = 'RUB' | 'USD' | 'EUR' | 'CNY';
+export const CURRENCIES: readonly Currency[] = ['RUB', 'USD', 'EUR', 'CNY'];
+
 export interface Inputs {
-    deposit: { ratePercent: number | null; capitalization: Capitalization; termMonths: number | null; taxPercent: number | null };
+    deposit: {
+        ratePercent: number | null;
+        capitalization: Capitalization;
+        termMonths: number | null;
+        taxPercent: number | null;
+        currency: Currency;
+        /** Roubles for one unit of the currency on the day of the purchase (ignored for roubles). / Рублей за единицу валюты в день покупки. */
+        fxRate: number | null;
+        /** How much the rate changes in a year, percent. / Насколько меняется курс за год, процент. */
+        fxChangePercent: number | null;
+    };
     bond: {
         nominal: number | null;
         cleanPricePercent: number | null;
@@ -38,13 +52,13 @@ export interface Inputs {
     };
 }
 
-export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon' | 'curve' | 'tax' | 'commission';
+export type Problem = BondProblem | 'amount' | 'rate' | 'term' | 'reinvest' | 'marketYield' | 'horizon' | 'curve' | 'tax' | 'commission' | 'fx' | 'fxChange';
 
 /** The OFZ 26248 example: a bond, a typical deposit, five years held. / Пример: ОФЗ 26248, обычный вклад, держим пять лет. */
 export function defaultInputs(): Inputs {
     const { bond, buy } = OFZ_26248;
     return {
-        deposit: { ratePercent: 14, capitalization: 'monthly', termMonths: 12, taxPercent: 0 },
+        deposit: { ratePercent: 14, capitalization: 'monthly', termMonths: 12, taxPercent: 0, currency: 'RUB', fxRate: 100, fxChangePercent: 0 },
         bond: {
             nominal: bond.nominal,
             cleanPricePercent: buy.cleanPricePercent,
@@ -63,6 +77,7 @@ export interface Evaluated {
     bond: Bond;
     buy: BondBuy;
     deposit: Deposit;
+    currency: Currency;
     scenario: Scenario;
     quote: BondQuote;
     comparison: Comparison;
@@ -100,10 +115,17 @@ export function evaluate(inputs: Inputs): Evaluation {
     const buy: BondBuy = { date: b.buyDate ?? '', cleanPricePercent: num(b.cleanPricePercent) };
     problems.push(...bondProblems(bond, buy));
 
+    const foreign = d.currency !== 'RUB';
+    if (foreign && !(num(d.fxRate) > 0)) problems.push('fx');
+    if (foreign && !(num(d.fxChangePercent) > -100)) problems.push('fxChange');
+    // Coupons into deposits and the market on the curve tie the bond to the rouble deposit rate: they make no sense beside a foreign one.
+    // Купоны во вклады и рынок по кривой привязывают облигацию к ставке рублёвого вклада: рядом с валютным они не имеют смысла.
+    const couponsFollow = s.reinvestFollows && !foreign;
+    const marketFollows = s.marketFollowsCurve && !foreign;
     if (!(num(s.amount) > 0)) problems.push('amount');
     if (!(num(d.ratePercent) >= 0)) problems.push('rate');
     if (!(num(d.termMonths) >= 1) || !Number.isInteger(d.termMonths)) problems.push('term');
-    if (!s.reinvestFollows && !(num(s.reinvestPercent) >= 0)) problems.push('reinvest');
+    if (!couponsFollow && !(num(s.reinvestPercent) >= 0)) problems.push('reinvest');
     if (!isValidCurve(s.curve)) problems.push('curve');
     const within = (v: number | null, max: number): boolean => num(v) >= 0 && num(v) <= max;
     if (!within(d.taxPercent, 100) || !within(b.taxPercent, 100)) problems.push('tax');
@@ -118,16 +140,17 @@ export function evaluate(inputs: Inputs): Evaluation {
         capitalization: d.capitalization,
         termMonths: d.termMonths!,
         taxRate: d.taxPercent! / 100,
+        ...(foreign ? { exchange: { rate0: d.fxRate!, yearlyChange: d.fxChangePercent! / 100 } } : {}),
     };
     const scenario: Scenario = {
         horizonYears: s.horizonYears,
-        reinvestRate: s.reinvestFollows ? 'deposit' : s.reinvestPercent! / 100,
-        marketYield: s.marketFollowsCurve ? 'path' : s.marketYieldPercent === null ? null : s.marketYieldPercent / 100,
+        reinvestRate: couponsFollow ? 'deposit' : s.reinvestPercent! / 100,
+        marketYield: marketFollows ? 'path' : s.marketYieldPercent === null ? null : s.marketYieldPercent / 100,
         path: curveToPath(s.curve),
     };
     const quote = bondQuote(bond, buy);
     const comparison = compare(deposit, bond, buy, scenario, { commission: b.commissionPercent! / 100, taxRate: b.taxPercent! / 100 });
-    return { ok: true, value: { bond, buy, deposit, scenario, quote, comparison, lifeYears: quote.years } };
+    return { ok: true, value: { bond, buy, deposit, currency: d.currency, scenario, quote, comparison, lifeYears: quote.years } };
 }
 
 export const PAYMENTS_PER_YEAR: readonly number[] = [1, 2, 4, 12];
@@ -164,6 +187,9 @@ export function sanitizeInputs(raw: unknown): Inputs {
             capitalization: CAPITALIZATIONS.includes(d.capitalization as Capitalization) ? (d.capitalization as Capitalization) : base.deposit.capitalization,
             termMonths: numberOrNull(d.termMonths, base.deposit.termMonths),
             taxPercent: numberOrNull(d.taxPercent, base.deposit.taxPercent),
+            currency: CURRENCIES.includes(d.currency as Currency) ? (d.currency as Currency) : base.deposit.currency,
+            fxRate: numberOrNull(d.fxRate, base.deposit.fxRate),
+            fxChangePercent: numberOrNull(d.fxChangePercent, base.deposit.fxChangePercent),
         },
         bond: {
             nominal: numberOrNull(b.nominal, base.bond.nominal),
