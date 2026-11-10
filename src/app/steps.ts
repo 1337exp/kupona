@@ -58,7 +58,9 @@ export function depositSteps(e: Evaluated): Record<'accrual' | 'compound' | 'dep
 
 export function bondSteps(e: Evaluated): Record<'purchase' | 'coupons' | 'exit' | 'bondResult', Step> {
     const run = e.comparison.bond;
-    const reinvest = e.scenario.reinvestRate;
+    // The interface does not offer "into deposits" yet: that option falls back to the deposit's own rate.
+    // Интерфейс пока не предлагает «во вклады»: этот вариант считается как ставка самого вклада.
+    const reinvest = typeof e.scenario.reinvestRate === 'number' ? e.scenario.reinvestRate : e.deposit.rate;
     return {
         purchase: {
             title: 'node.purchase',
