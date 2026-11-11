@@ -26,6 +26,8 @@ export interface Inputs {
         fxChangePercent: number | null;
     };
     bond: {
+        /** What the person typed to find a bond on the exchange: a ticker, an ISIN or a part of the name. / Что человек вписал для поиска облигации на бирже. */
+        ticker: string;
         nominal: number | null;
         cleanPricePercent: number | null;
         couponRub: number | null;
@@ -60,6 +62,7 @@ export function defaultInputs(): Inputs {
     return {
         deposit: { ratePercent: 14, capitalization: 'monthly', termMonths: 12, taxPercent: 0, currency: 'RUB', fxRate: 100, fxChangePercent: 0 },
         bond: {
+            ticker: OFZ_26248.ticker,
             nominal: bond.nominal,
             cleanPricePercent: buy.cleanPricePercent,
             couponRub: bond.couponRub,
@@ -192,6 +195,7 @@ export function sanitizeInputs(raw: unknown): Inputs {
             fxChangePercent: numberOrNull(d.fxChangePercent, base.deposit.fxChangePercent),
         },
         bond: {
+            ticker: typeof b.ticker === 'string' && b.ticker.length <= 60 ? b.ticker : base.bond.ticker,
             nominal: numberOrNull(b.nominal, base.bond.nominal),
             cleanPricePercent: numberOrNull(b.cleanPricePercent, base.bond.cleanPricePercent),
             couponRub: numberOrNull(b.couponRub, base.bond.couponRub),

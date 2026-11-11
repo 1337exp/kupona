@@ -135,6 +135,14 @@ describe('sanitizeInputs', () => {
         expect(sanitizeInputs(JSON.parse(JSON.stringify(mine)))).toEqual(mine);
     });
 
+    it('keeps the ticker the person typed, and puts the example one back for junk', () => {
+        const mine = withInputs((i) => (i.bond.ticker = 'RU000A108EH4'));
+        expect(sanitizeInputs(JSON.parse(JSON.stringify(mine))).bond.ticker).toBe('RU000A108EH4');
+        expect(sanitizeInputs({ bond: { ticker: 5 } }).bond.ticker).toBe(defaultInputs().bond.ticker);
+        expect(sanitizeInputs({ bond: { ticker: 'x'.repeat(61) } }).bond.ticker).toBe(defaultInputs().bond.ticker);
+        expect(sanitizeInputs({ bond: { ticker: '' } }).bond.ticker).toBe('');
+    });
+
     it('keeps an emptied field empty', () => {
         const mine = withInputs((i) => (i.scenario.amount = null));
         expect(sanitizeInputs(JSON.parse(JSON.stringify(mine))).scenario.amount).toBeNull();

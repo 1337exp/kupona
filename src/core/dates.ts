@@ -31,3 +31,16 @@ export function formatDate(day: number): string {
 export function yearsBetween(fromDay: number, toDay: number): number {
     return (toDay - fromDay) / DAYS_PER_YEAR;
 }
+
+/**
+ * The next working day after `iso`: bonds settle the day after the deal (T+1). Only Saturday and Sunday are skipped; the holidays of the
+ * exchange are not in the code, the date can be changed by hand.
+ * Следующий рабочий день после `iso`: облигации рассчитываются на следующий день (Т+1). Пропускаются только суббота и воскресенье;
+ * праздников биржи в коде нет, дату можно поправить руками.
+ */
+export function nextWorkday(iso: string): string {
+    let day = parseDate(iso) + 1;
+    // Day 0 (1970-01-01) was a Thursday.
+    while ([6, 0].includes((day + 4) % 7)) day += 1;
+    return formatDate(day);
+}

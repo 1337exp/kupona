@@ -43,13 +43,13 @@ export interface LinkDef {
 
 const W = 340;
 const COL = [0, 420, 840] as const;
-const ROW1 = 444;
+const ROW1 = 474;
 const STEP = 252;
 
 export const NODES: readonly NodeDef[] = [
-    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 380 },
-    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 380 },
-    { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 380 },
+    { id: 'deposit', branch: 'deposit', level: 0, x: COL[0], y: 0, w: W, h: 410 },
+    { id: 'scenario', branch: 'both', level: 0, x: COL[1], y: 0, w: W, h: 410 },
+    { id: 'bond', branch: 'bond', level: 0, x: COL[2], y: 0, w: W, h: 410 },
 
     // You edit the curve of rates here, but it grows after the first calculation: the first screen stays three nodes.
     // Кривую правят здесь, но она вырастает после первого расчёта: первый экран остаётся из трёх нод.

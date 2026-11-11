@@ -1,0 +1,1 @@
+{"securities":{"columns":["SECID","SHORTNAME","FACEVALUE","FACEUNIT","COUPONPERIOD","MATDATE","PREVPRICE"],"data":[["SU26248RMFS3","ОФЗ 26248",1000,"SUR",182,"2040-05-16",79.376]]},"marketdata":{"columns":["SECID","LAST"],"data":[["SU26248RMFS3",79.201]]}}

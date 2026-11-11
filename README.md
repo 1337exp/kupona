@@ -22,7 +22,9 @@ npm run screenshot  # docs/media/*.png for the README, needs Chrome or Edge
 
 ## What it does
 
-Three nodes you type into: **Deposit** (rate, how interest is added, term, tax on the interest, currency), **Scenario** (the amount, how long you hold, where coupons go, where the market goes after the purchase) and **Bond** (price, coupon, payments a year, nominal, the two dates, broker commission, tax on the profit). Commission and taxes are 0 until you set them; each side has its own tax rate, because the rules for deposits and bonds differ. The page opens with the OFZ 26248 example.
+Three nodes you type into: **Deposit** (rate, how interest is added, term, tax on the interest, currency), **Scenario** (the amount, how long you hold, where coupons go, where the market goes after the purchase) and **Bond** (a ticker to find it on the exchange, price, coupon, payments a year, nominal, the two dates, broker commission, tax on the profit). Commission and taxes are 0 until you set them; each side has its own tax rate, because the rules for deposits and bonds differ. The page opens with the OFZ 26248 example.
+
+**A bond from the exchange.** Type a ticker, an ISIN or a part of the name in the Bond node and press "Find": the price, the coupon, the nominal, the payments a year and the maturity come from the Moscow Exchange (the public ISS service, asked straight from your browser; nothing goes through a server of ours, and what you typed goes to the exchange as a search). The price is the last deal, or the day before's when there were none yet; the settlement day is the next working day (weekends are skipped, the holidays of the exchange are not known: the date can be changed). Commission and tax stay as you set them. The calculator does a fixed coupon in roubles with the nominal paid at the end, so a floating or amortizing bond, one in a currency, or one with a coupon period of its own is turned down with the reason, and the fields stay as they were.
 
 **Currency.** The deposit can be in USD, EUR or CNY. The roubles are changed at the rate you give (a figure of yours, not a quote), the interest is earned in the currency, and at the end the balance is changed back at the rate of that day, which moves by the share a year you set. The nodes say what the roubles became and what the exchange gave or took. Coupons into deposits and the market on the curve exist only beside a rouble deposit: they tie the bond to the rouble deposit rate.
 
@@ -66,20 +68,20 @@ Assumptions: the tax on a currency deposit is on the interest in the currency, a
 src/
   core/    bond, deposit, comparison, dates, bisection, presets: no Vue, no DOM
   app/     what is typed (percent, empty fields) and how it reaches the core, the text of every
-           step as data, chart lines, the shape of the chain, the store: no DOM except the store
+           step as data, chart lines, the shape of the chain, the exchange (moex.ts), the store: no DOM except the store
   ui/      node views and the node bodies
   i18n/    ru and en
 scripts/   screenshots for the README
-tests/     core: exchange page numbers, hand-computed cases, invariants; tests/app: the app layer
+tests/     core: exchange page numbers, hand-computed cases, invariants; tests/app: the app layer; tests/fixtures: real answers of the exchange
 ```
 
 The chain is built for you, so the canvas has no pins to drag. The panels sit beside the canvas, not inside it: the canvas captures the pointer and would swallow the clicks.
 
-Tests were checked by breaking the code on purpose (172 mutants, all caught): `node E:\job\base\snippets\mutate.mjs`.
+Tests were checked by breaking the code on purpose (227 mutants: 226 caught, one changes nothing a user could see): `node E:\job\base\snippets\mutate.mjs`.
 
 ## Not yet
 
-The exchange rate as a curve, bonds in a currency, the bank's spread. Bonds with floating or amortizing coupons. Loading a bond by ticker. Saving node positions, undo, a file to save and open. Touch use is not checked on a real device.
+The exchange rate as a curve, bonds in a currency, the bank's spread. Bonds with floating or amortizing coupons. A coupon schedule that is not regular. Saving node positions, undo, a file to save and open. Touch use is not checked on a real device.
 
 ## License
 

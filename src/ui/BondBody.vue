@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { TaoButton, TaoDate, TaoInputNumber, TaoSelect } from '@1337exp/taoui';
+import { TaoButton, TaoDate, TaoInput, TaoInputNumber, TaoSelect } from '@1337exp/taoui';
 import { PAYMENTS_PER_YEAR } from '@/app/model';
 import { useStore } from '@/app/store';
 import { useI18n } from '@/i18n';
@@ -11,10 +11,30 @@ const { t } = useI18n();
 const b = store.inputs.bond;
 const bad = (...codes: string[]) => codes.some((c) => (store.problems as string[]).includes(c));
 const perYear = computed(() => PAYMENTS_PER_YEAR.map((n) => ({ value: n, label: String(n) })));
+
+const loading = computed(() => store.lookup.state === 'loading');
+const failed = computed(() => store.lookup.state === 'failed');
+const CANDIDATES_SHOWN = 3;
+
+/** The line under the ticker: what the exchange said, or the hint while nobody has asked. / Строка под тикером: что сказала биржа или подсказка, пока никто не спрашивал. */
+const status = computed(() => {
+    const l = store.lookup;
+    if (l.state === 'loading') return t('moex.loading');
+    if (l.state === 'ok') return t('moex.ok', [l.found.name, t(`moex.${l.found.priceSource}`)]);
+    if (l.state === 'failed') {
+        if (l.reason === 'ambiguous' && l.candidates) return t('moex.candidates', [l.candidates.slice(0, CANDIDATES_SHOWN).join(', ')]);
+        return t(`moex.fail.${l.reason}`);
+    }
+    return t('hint.bond');
+});
 </script>
 
 <template>
     <div class="grid">
+        <div class="find wide">
+            <TaoInput v-model="b.ticker" :placeholder="t('field.ticker')" :error="failed" :aria-label="t('field.ticker')" @update:model-value="store.forgetLookup()" @keydown.enter="store.findBond()" />
+            <TaoButton size="small" :loading="loading" @click="store.findBond()">{{ t('moex.find') }}</TaoButton>
+        </div>
         <Field :label="t('field.price')" :error="bad('price')">
             <TaoInputNumber v-model="b.cleanPricePercent" :min="0" :step="0.1" :precision="3" :controls="false" />
         </Field>
@@ -39,7 +59,7 @@ const perYear = computed(() => PAYMENTS_PER_YEAR.map((n) => ({ value: n, label: 
         <Field :label="t('field.bondTax')" :error="bad('tax')">
             <TaoInputNumber v-model="b.taxPercent" :min="0" :max="100" :step="1" :controls="false" />
         </Field>
-        <p class="hint wide">{{ t('hint.bond') }}</p>
+        <p class="hint wide" :class="{ bad: failed }" aria-live="polite">{{ status }}</p>
         <TaoButton class="wide" variant="ghost" tone="neutral" size="small" @click="store.loadExample()">{{ t('app.example') }}</TaoButton>
     </div>
 </template>
@@ -53,6 +73,16 @@ const perYear = computed(() => PAYMENTS_PER_YEAR.map((n) => ({ value: n, label: 
 
 .wide {
     grid-column: 1 / -1;
+}
+
+.find {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.hint.bad {
+    color: var(--tao-color-danger, #e5484d);
 }
 
 .hint {

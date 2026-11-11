@@ -1,0 +1,1 @@
+{"securities":{"columns":["SECID","SHORTNAME","FACEVALUE","FACEUNIT","COUPONPERIOD","MATDATE","PREVPRICE"],"data":[["SU29027RMFS8","ОФЗ 29027",1000,"SUR",91,"2036-09-11",94.975]]},"marketdata":{"columns":["SECID","LAST"],"data":[["SU29027RMFS8",94.993]]}}

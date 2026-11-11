@@ -9,6 +9,7 @@ import type { CanvasHost } from '@1337exp/taoux/canvas';
 import { createSavedStorage } from '@1337exp/taoux/storage';
 import { LAST_LEVEL, bounds, defaultPositions, lines, nodeDef, type NodeId, type Positions } from './graph';
 import { defaultInputs, evaluate, sanitizeInputs, type Inputs, type Problem } from './model';
+import { applyFound, createFinder, localToday, type LookupState } from './moex';
 
 const MAX_ZOOM_FIT = 1;
 const FIT_PADDING = 40;
@@ -128,8 +129,22 @@ function createStore() {
         fit();
     }
 
+    // --- a bond from the exchange by its ticker / облигация с биржи по тикеру
+    const lookup = ref<LookupState>({ state: 'idle' });
+    const findBond = createFinder({
+        fetcher: (url, init) => fetch(url, init),
+        today: () => localToday(),
+        query: () => inputs.bond.ticker,
+        apply: (found) => applyFound(inputs.bond, found),
+        show: (state) => (lookup.value = state),
+    });
+    function forgetLookup(): void {
+        if (lookup.value.state !== 'loading') lookup.value = { state: 'idle' };
+    }
+
     function loadExample(): void {
         Object.assign(inputs, defaultInputs());
+        lookup.value = { state: 'idle' };
     }
 
     // --- selection and dragging of nodes (the canvas asks, we answer) / выделение и перетаскивание нод
@@ -185,7 +200,7 @@ function createStore() {
 
     // reactive() unwraps the refs, so components write `store.level`, not `store.level.value`. The host stays as it is: the canvas takes it once.
     // reactive() разворачивает рефы: в компонентах `store.level`, а не `store.level.value`. Мост остаётся как есть: холст берёт его один раз.
-    return Object.assign(reactive({ inputs, evaluation, theme, positions, level, calculating, camera, viewport, selection, lineList, problems, calculate, fit, layout, loadExample }), {
+    return Object.assign(reactive({ inputs, evaluation, theme, positions, level, calculating, camera, viewport, selection, lineList, problems, calculate, fit, layout, loadExample, lookup, findBond, forgetLookup }), {
         host: markRaw(host),
     });
 }

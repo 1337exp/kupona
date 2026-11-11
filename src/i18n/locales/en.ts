@@ -88,6 +88,29 @@ const en: typeof ru = {
         commission: 'Commission, %',
         bondTax: 'Tax on profit, %',
         maturity: 'Maturity',
+        ticker: 'Ticker, ISIN or name',
+    },
+    moex: {
+        find: 'Find',
+        loading: 'Asking the exchange…',
+        ok: '{0}: price of {1}, the rest from the exchange',
+        last: 'the last deal',
+        previous: 'the day before',
+        candidates: 'Fit: {0}; be more exact',
+        fail: {
+            empty: 'Type a ticker, an ISIN or a name',
+            notFound: 'No such bond on the exchange',
+            ambiguous: 'Several fit',
+            notTraded: 'This bond is not traded on the exchange',
+            network: 'The exchange did not answer: no network, or it does not let the page in',
+            shape: 'The exchange answered in a way we did not expect',
+            noPrice: 'The bond has no price: there were no deals',
+            matured: 'This bond is matured already',
+            currency: 'The bond is not in roubles: the calculator does roubles',
+            varying: 'The coupons differ or are not known yet (floating?): the calculator does equal ones',
+            amortizing: 'The nominal is paid back in parts: the calculator cannot do that',
+            period: 'An unusual coupon period: the calculator knows 1, 2, 4 and 12 payments a year',
+        },
     },
     rates: {
         hint: 'How the deposit rate moves over the years: drag points, double click adds, Alt+click removes. The deposit is renewed at it.',
@@ -100,7 +123,7 @@ const en: typeof ru = {
         scenarioFx: 'Coupons into deposits and the market on the curve exist only beside a rouble deposit.',
         deposit: 'The same percent gives different money depending on capitalization.',
         scenario: 'The same money and the same period for the deposit and the bond.',
-        bond: 'Price and coupon from the bond page; accrued interest and yield are calculated.',
+        bond: 'Find the bond on the exchange by its ticker, or type the price and the coupon yourself; accrued interest and yield are calculated.',
     },
     step: {
         accrual: {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, parseDate, yearsBetween } from '@/core/dates';
+import { formatDate, nextWorkday, parseDate, yearsBetween } from '@/core/dates';
 
 describe('dates', () => {
     it('round-trips a date through the day number', () => {
@@ -21,5 +21,14 @@ describe('dates', () => {
     it('turns days into years on act/365', () => {
         expect(yearsBetween(parseDate('2026-11-11'), parseDate('2027-11-11'))).toBe(1);
         expect(yearsBetween(100, 100)).toBe(0);
+    });
+
+    it('settles on the next working day: the weekend is skipped', () => {
+        expect(nextWorkday('2026-11-11')).toBe('2026-11-12'); // Wed -> Thu
+        expect(nextWorkday('2026-11-12')).toBe('2026-11-13'); // Thu -> Fri
+        expect(nextWorkday('2026-11-13')).toBe('2026-11-16'); // Fri -> Mon
+        expect(nextWorkday('2026-11-14')).toBe('2026-11-16'); // Sat -> Mon
+        expect(nextWorkday('2026-11-15')).toBe('2026-11-16'); // Sun -> Mon
+        expect(nextWorkday('2026-12-31')).toBe('2027-01-01'); // Thu -> Fri across the year (the holidays are not known)
     });
 });
